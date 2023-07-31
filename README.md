@@ -1,10 +1,10 @@
-# sd-civitai-browser
+# Stable-Diffusion CivitAI Browser
 An extension that allows you to preview and download CivitAI models directly within the WebUI
 
 # Description
 This is an extension for [AUTOMATIC111's Stable Diffuion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui). This extension will allow you to search for and download models from CivitAI directly within the WebUI.
 This extension is based on [SignalFlagZ's CivitAI Browser](https://github.com/SignalFlagZ/sd-civitai-browser) which itself is a fork of [Vetchem's CivitAI Browser](https://github.com/Vetchem/sd-civitai-browser).
-I modified/tweaked the HTML of the preview and model list page to kinda match with CivitAI's style ( I'm no expert in HTML & CSS, took me some time to get those things just right 😅 ). 
+I modified/tweaked the HTML of the preview and model list page to kinda match with CivitAI's style ( I'm no expert in HTML & CSS, took me some time to get those things just right 😅 ).
 
 # Modifications
 - Modified version of [SignalFlagZ's CivitAI Browser](https://github.com/SignalFlagZ/sd-civitai-browser)
