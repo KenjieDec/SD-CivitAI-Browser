@@ -25,23 +25,11 @@ from multiprocessing import Process
 import concurrent.futures
 import blake3
 import random
+from scripts.file_manager import *
 
-folders = {
-    "Checkpoint": cmd_opts.ckpt_dir if cmd_opts.ckpt_dir else os.path.join(models_path, "Stable-diffusion"),
-    "Hypernetwork": cmd_opts.hypernetwork_dir,
-    "TextualInversion": cmd_opts.embeddings_dir,
-    "AestheticGradient": "extensions/stable-diffusion-webui-aesthetic-gradients/aesthetic_embeddings",
-    "LORA": cmd_opts.lora_dir,
-    "LoCon": cmd_opts.lyco_dir 
-        if "lyco_dir" in cmd_opts else cmd_opts.lyco_dir_backcompat if "lyco_dir_backcompat" in cmd_opts else os.path.join(models_path, "LyCORIS"),
-    "VAE": cmd_opts.vae_dir 
-        if cmd_opts.vae_dir else os.path.join(models_path, "VAE"),
-    "Controlnet": os.path.join(os.path.join(cmd_opts.ckpt_dir, os.pardir), "ControlNet")
-        if cmd_opts.ckpt_dir else os.path.join(models_path, "ControlNet"),
-    "Poses": os.path.join(os.path.join(cmd_opts.ckpt_dir, os.pardir), "Poses")
-        if cmd_opts.ckpt_dir else os.path.join(models_path, "Poses")
-}
-
+print_ly = lambda x: print_ly("\033[93mCivBrowser: " + x + "\033[0m")
+print_lc = lambda x: print_ly("\033[96mCivBrowser: " + x + "\033[0m")
+print_n = lambda  x: print_ly("CivBrowser: " + x )
 
 def random_user_agent():
     chrome = [
@@ -93,7 +81,7 @@ json_info = None
 
 def get_model_info_by_id(id, type:str, retry=False) -> dict:
     if not id:
-        print("No id?") 
+        print_ly("No id?") 
         return None
 
     civitai_endpoints = {
@@ -103,7 +91,7 @@ def get_model_info_by_id(id, type:str, retry=False) -> dict:
 
     api_url = civitai_endpoints[type]
     if not api_url:
-        print("Invalid type specified")
+        print_ly("Invalid type specified")
         return None
 
     try:
@@ -112,33 +100,33 @@ def get_model_info_by_id(id, type:str, retry=False) -> dict:
 
         content = response.json()
         if not content:
-            print("Error: No content found")
+            print_ly("Error: No content found")
             return None
 
         return content
 
     except requests.exceptions.HTTPError as err:
         if err.response.status_code == 503:
-            print("Error: 503 Service Unavailable")
+            print_ly("Error: 503 Service Unavailable")
             if retry == True:
                 return None
-            print("Retrying...")
-            print("503 Service Unavailable error, retrying...")
+            print_ly("Retrying...")
+            print_ly("503 Service Unavailable error, retrying...")
             time.sleep(1)
             get_model_info_by_id(id, type, True)
     except requests.exceptions.RequestException as e:
-        print("Request error:", e)
+        print_ly("Request error:", e)
         return None
 
     except ValueError as ve:
-        print("Parse response JSON failed")
-        print(str(ve))
-        print("Response:")
-        print(response.text)
+        print_ly("Parse response JSON failed")
+        print_ly(str(ve))
+        print_ly("Response:")
+        print_ly(response.text)
         return None
 
     except Exception as ex:
-        print("Error:", ex)
+        print_ly("Error:", ex)
         return None
     
 def calculate_sha256(filename):
@@ -150,7 +138,7 @@ def calculate_sha256(filename):
 
             
 def scan_model(model_types, model_name, file_name):
-    print("Scanning Files")
+    print_ly("Scanning Files")
     def get_folder_size(folder_path):
         total_size = 0
         byte_to_gb = 1/(1024**3)  # Conversion factor from bytes to GB
@@ -177,9 +165,9 @@ def scan_model(model_types, model_name, file_name):
                     if len(base) > 4:
                         if base[-4:] == ".vae":
                             # find .vae
-                            print("This is a vae file: " + filename)
+                            print_ly("This is a vae file: " + filename)
                             continue
-                    print(f"Checking {filename}")
+                    print_ly(f"Checking {filename}")
                 
                     start_time = time.time()
 
@@ -188,7 +176,7 @@ def scan_model(model_types, model_name, file_name):
                         future = pool.submit(calculate_sha256, item)
                         hash = future.result()
                     time_elapsed = time.time() - start_time
-                    print("Extracted model hash in", time_elapsed, "seconds")
+                    print_ly("Extracted model hash in", time_elapsed, "seconds")
 
                     # use this sha256 to get model info from civitai
                     model_info = requests.get(f"https://civitai.com/api/v1/model-versions/by-hash/{hash}", headers=def_headers(), proxies=None)
@@ -213,7 +201,7 @@ def scan_model(model_types, model_name, file_name):
                             model = get_model_info_by_id(modelId, "modelId")
                             if model or model is not None:
                                 if model_name in model["name"]:
-                                    print(f"Skipping download, This model was found in {root} as {filename}")
+                                    print_ly(f"Skipping download, This model was found in {root} as {filename}")
                                     return True
                             else:
                                 return False
@@ -239,19 +227,19 @@ def download_file(url, file_name, path, model_types, model_name):
 
 
             if process.returncode == 0:
-                print(f"{file_name} downloaded successfully.")
-                print("Time elapsed:", time_elapsed, "seconds")
+                print_ly(f"{file_name} downloaded successfully.")
+                print_ly("Time elapsed:", time_elapsed, "seconds")
                 retry_count = 3 
                 return True
             else:
-                print(f"Error downloading {file_name}. Try again...")
+                print_ly(f"Error downloading {file_name}. Try again...")
                 retry_count += 1
         return False
 
 
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("aria2c is not installed or not available on the system.")
-        print("Falling back to using requests for downloading...")
+        print_ly("aria2c is not installed or not available on the system.")
+        print_ly("Falling back to using requests for downloading...")
 
         # Fallback method using requests
         try:
@@ -268,53 +256,25 @@ def download_file(url, file_name, path, model_types, model_name):
                             f.write(data)
                             pbar.update(len(data))
 
-            print(f"{file_name} downloaded successfully.")
+            print_ly(f"{file_name} downloaded successfully.")
             return True
         except requests.exceptions.RequestException as e:
-            print(f"Error downloading {file_name}: \n{e}")
+            print_ly(f"Error downloading {file_name}: \n{e}")
             return False
-
-def chkfldr(content_type, use_new_folder, model_name = ""):
-    folder = folders[content_type]   
-    if not os.path.exists(folder): os.makedirs(folder)
-        
-    escapechars = { " ": r"_",
-                    "(": r"",
-                    ")": r"",
-                    "|": r"",
-                    ":": r"",
-                    ",": r"_",
-                    "<": r"",
-                    ">": r"",
-                    "!": r"",
-                    "?": r"",
-                    ".": r"_",
-                    "&": r"_and_",
-                    "*": r"_",
-                    "\"": r"",
-                    "\\": r""}
-    if use_new_folder:
-        model_folder = os.path.join(folder, model_name.maketrans(escapechars))
-        if not os.path.exists(model_folder):
-            os.makedirs(model_folder)
-    else:
-        model_folder = os.path.join(folder)
-        if not os.path.exists(model_folder):
-            os.makedirs(model_folder)
-    print(f"Model Path:{model_folder}")
-    return model_folder
 
 def download_file_thread(url, file_name, content_type, use_new_folder, model_name):
     model_folder = chkfldr(content_type, use_new_folder, model_name)
     path = os.path.join(model_folder)
     
-    print(f"Downloading {model_name}")
+    print_ly(f"Downloading {model_name}")
     download = download_file(url, file_name, path, content_type, model_name)
 
     return gr.Button.update(interactive = not download)
 
-def api_search(content_type, sort_type, period, search_by, search_term=None, limit=20):
-    query = {'limit': limit, 'types': content_type, 'sort': sort_type, 'period': period}
+def makeRequestQuery(content_type, sort_type, period, search_by, search_term=None, limit=20):
+    query = {'limit': limit, 'types': content_type, 'sort': sort_type}
+    if not period == "AllTime":
+        query |= {'period': period}
     if (search_by not in ["Url", "None"]) and search_term:
         #search_term = search_term.replace(" ","%20")
         match search_by:
@@ -324,7 +284,7 @@ def api_search(content_type, sort_type, period, search_by, search_term=None, lim
                 query.update({'tag': search_term })
             case _:
                 query.update({'query': search_term })
-        return request_civit_api(f"{api_url}", query )
+        return requestApi(f"{api_url}", query )
     else:
         match search_by:
             case "None":
@@ -339,8 +299,8 @@ def api_search(content_type, sort_type, period, search_by, search_term=None, lim
                             # this is not a civitai model
                             query.update({'query': "Website doesn't exist" })
                         else:
-                            print("Get error code: " + str(response.status_code))
-                            print(response.text)
+                            print_ly("Get error code: " + str(response.status_code))
+                            print_ly(response.text)
                             query.update({'query': "Website doesn't exist" })
                 except requests.exceptions.RequestException:
                     query.update({'query': "Website doesn't exist" })
@@ -361,9 +321,9 @@ def api_search(content_type, sort_type, period, search_by, search_term=None, lim
                     query.update({'query': getModelInfo["name"] })
                 if(isit_modelId):
                     query.update({'query': isit_modelId["name"] })
-        return request_civit_api(f"{api_url}", query )
+        return requestApi(f"{api_url}", query )
 
-def model_list_html(models_data, model_dict, allow_nsfw):
+def modelCardsHtml(models_data, model_dict, allow_nsfw):
     HTML = '''<div class="column civlistParent">
     <div class="column civmodellist" data-mouse-down-at="0" data-prev-percentage="0">'''
     imgtag = ""
@@ -396,10 +356,10 @@ def updatePage(show_nsfw, button):
     isNext = True if button == "Next Page" else False
     if isNext:
         next_page = models_data['metadata']['nextPage']
-        models_data = request_civit_api(next_page)
+        models_data = requestApi(next_page)
     else:
         prev_page = models_data['metadata']['prevPage']
-        models_data = request_civit_api(prev_page) if prev_page is not None else None
+        models_data = requestApi(prev_page) if prev_page is not None else None
 
     if models_data is None:
         return
@@ -407,7 +367,7 @@ def updatePage(show_nsfw, button):
     hasPrev, hasNext, pages = pagecontrol(models_data)
     model_dict = {item['name']: item['name'] for item in models_data['items']}
 
-    HTML = model_list_html(models_data, model_dict, show_nsfw)
+    HTML = modelCardsHtml(models_data, model_dict, show_nsfw)
 
     return (
         # gr.Textbox.update(value=None), # Model Name
@@ -432,7 +392,7 @@ def update_model_list(content_type, sort_type, period, search_by, search_term, s
     elif limit > 100:
         limit = 100
     
-    models_data = api_search(content_type, sort_type, period, search_by, search_term, limit)
+    models_data = makeRequestQuery(content_type, sort_type, period, search_by, search_term, limit)
     if models_data is None:
         return None
 
@@ -440,7 +400,7 @@ def update_model_list(content_type, sort_type, period, search_by, search_term, s
 
     model_dict = {item['name']: item['name'] for item in models_data['items']}
 
-    HTML = model_list_html(models_data, model_dict, show_nsfw)
+    HTML = modelCardsHtml(models_data, model_dict, show_nsfw)
 
     return (
         gr.HTML.update(value=HTML, visible=True), # Model List
@@ -464,7 +424,7 @@ def get_model_gallery(versionId):
         return data
 
     except requests.exceptions.RequestException as e:
-        print("Request error: ", e)
+        print_ly("Request error: ", e)
         return None
 
 def update_model_versions(model_name=None, inter=True):
@@ -498,14 +458,14 @@ def update_download_url(model_name=None, model_version=None, model_filename=None
 
 def update_model_info(model_name=None, model_version=None, showNsfw=True, content_type="Checkpoint"):
 
-    print(f"First: {content_type}")
+    print_ly(f"First: {content_type}")
     match content_type:
         case "TextualInversion":
             content_type = "Textual Inversion"
         case "AestheticGradient":
             content_type = "Aesthetic Gradient"
     
-    print(f"Second: {content_type}")
+    print_ly(f"Second: {content_type}")
     if model_name and model_version:
         global models_data
         trigger_words = "None"
@@ -767,7 +727,7 @@ def update_model_info(model_name=None, model_version=None, showNsfw=True, conten
                 )
 
 
-def request_civit_api(api_url=None, parameters=None):
+def requestApi(api_url=None, parameters=None):
     try:
         if parameters is not None:
             parameters = urllib.parse.urlencode(parameters, quote_via=urllib.parse.quote)
@@ -781,7 +741,7 @@ def request_civit_api(api_url=None, parameters=None):
         return data
 
     except requests.exceptions.RequestException as e:
-        print("Request error: ", e)
+        print_ly(f"Request error: {e}")
         return None
 
 
@@ -817,264 +777,3 @@ def update_everything(content_type, sort_type, period, search_by, search_term, s
 
 def showhide(search_by):
     return gr.Textbox.update(visible=(search_by != "None"))
-
-def on_ui_tabs():
-    with gr.Blocks() as civitai_interface:
-        with gr.Row():
-            with gr.Column(scale=2):
-                content_type = gr.Dropdown(label='Content type:', choices=["Checkpoint", "TextualInversion", "LORA", "LoCon", "Poses", "Controlnet", "Hypernetwork", "AestheticGradient", "VAE"], value="Checkpoint", type="value")
-            with gr.Column(scale=1,min_width=100):
-                sort_type = gr.Dropdown(label='Sort List by:', choices=["Newest", "Most Downloaded", "Highest Rated", "Most Liked"], value="Highest Rated", type="value")
-                show_nsfw = gr.Checkbox(label="NSFW content", value=True, default=True)
-            with gr.Column(scale=1):
-                period = gr.Dropdown(label='Period:', choices=["AllTime", "Year", "Month", "Week", "Day"], value="Month", type="value")
-        with gr.Row():
-            search_by = gr.Radio(label="Search by", choices=["None", "Model name", "User name", "Tag", "Url"], value="Model name")
-            search_term = gr.Textbox(label="Search Term", visible=True, interactive=True, lines=1)
-        with gr.Row():
-            with gr.Column(scale=4):
-                search = gr.Button(label="Search", value="Search")
-            with gr.Column(scale=2,min_width=80):
-                prev_button = gr.Button(value="Prev. Page", interactive=False)
-            with gr.Column(scale=2,min_width=80):
-                next_button = gr.Button(value="Next Page", interactive=False)
-            with gr.Column(scale=1,min_width=80):
-                limit = gr.Number(label='Limit', minimum=1, maximum=100, value=20, interactive=True, show_label=True)
-            with gr.Column(scale=1,min_width=80):
-                pages = gr.Textbox(label='Page', interactive=False, show_label=True)
-        with gr.Row():
-            list_html = gr.HTML()
-        with gr.Row():
-            current_model = gr.Textbox(label="Model", interactive=False, elem_id="quicksettings1", value=None)
-            selected_model = gr.Textbox(label="Event text", elem_id="selected_model", visible=False, value="", interactive=True, lines=1)
-            list_versions = gr.Dropdown(label="Versions", choices=[], interactive=False, elem_id="quicksettings", value=None)
-        with gr.Row():
-            trigger = gr.Textbox(label='Trigger Words', visible=False, value="None", interactive=False, lines=1)
-            model_filename = gr.Textbox(label="Model Filename", choices=[], interactive=False, value=None)
-            download_url = gr.Textbox(label="Download Url", interactive=False, value=None)
-        with gr.Row():
-            download_model = gr.Button(value="Download Model", interactive=False)
-            save_model_in_new = gr.Checkbox(label="Save a model to a Folder with model name", value=False)
-        with gr.Row():
-            preview_image_html = gr.HTML()
-
-        search_by.change(
-            fn=showhide,
-            inputs=search_by,
-            outputs=search_term,
-            show_progress=False
-        )
-        download_model.click(
-            fn=download_file_thread,
-            inputs=[
-                download_url,
-                model_filename,
-                content_type,
-                save_model_in_new,
-                current_model,
-            ],
-            outputs=download_model
-        )
-        search.click(
-            fn=update_model_list,
-            inputs=[
-                content_type,
-                sort_type,
-                period,
-                search_by,
-                search_term,
-                show_nsfw, 
-                limit
-            ],
-            outputs=[
-                list_html,            
-                prev_button,
-                next_button,
-                pages,
-                limit
-            ]
-        )
-        show_nsfw.change(
-            fn=update_everything,
-            #fn=update_model_info,
-            inputs=[
-                content_type,
-                sort_type,
-                period,
-                search_by,
-                search_term,
-                show_nsfw,
-
-                selected_model, 
-
-                list_html,
-
-                limit
-            ],
-            outputs=[
-                list_html,            
-                prev_button,
-                next_button,
-                pages,
-
-                selected_model,
-
-                trigger,
-
-                limit
-            ]
-        )
-        #current_model.change(
-        #    fn = update_model_versions,
-        #    inputs=[
-        #        current_model,
-        #    ],
-        #    outputs=[
-        #        list_versions,
-        #    ]
-        #)
-        def update_models_dropdown2(model_name, show_nsfw, model_types, ret_versions, type):
-            
-            if ret_versions == "" or ret_versions is None or not ret_versions:
-                return (
-                            gr.Textbox.update(value=""), # Download URL
-                            gr.Textbox.update(value=""), # trigger 
-
-                            gr.Textbox.update(value=""), # Model FileName 
-                            gr.Button.update(interactive=False), # Download Button
-
-                            gr.HTML.update(visible=False), # Preview 
-                            gr.HTML.update(), # Model List 
-
-                            gr.Dropdown.update(interactive=False) # Versions List
-                        )   
-            start_time = time.time()
-            (html, dum, filename) = update_model_info(model_name, ret_versions, show_nsfw, type)
-            time_elapsed = time.time() - start_time
-            print("Extracted models in", time_elapsed, "seconds")
-
-            start_time = time.time()
-            down_url = update_download_url(model_name, ret_versions, filename)
-            time_elapsed = time.time() - start_time
-            print("Extracted download url in", time_elapsed, "seconds")
-
-            download = "Download Model"
-            download_state = True
-
-            return (
-                        down_url, # Download URL
-                        dum, # trigger 
-
-                        filename, # Model FileName 
-                        gr.Button.update(interactive=download_state, value=download), # Download Button
-
-                        html, # Preview 
-                        gr.HTML.update(visible=True), # Model List 
-
-                        gr.Dropdown.update(interactive=True) # Versions List
-                    )  
-        list_versions.change(
-            fn = update_models_dropdown2,
-            inputs=[
-                current_model,
-                show_nsfw,
-                content_type,
-                list_versions,
-                content_type
-            ],
-            outputs=[
-                download_url,
-                trigger,
-
-                model_filename, 
-                download_model,
-
-                preview_image_html,
-                list_html,
-                list_versions,
-            ]
-        )
-        next_button.click(
-            fn=updatePage,
-            inputs=[
-                show_nsfw,
-                next_button
-            ],
-            outputs=[
-                # current_model,
-                # list_versions,
-                list_html,
-                prev_button,
-                next_button,
-                pages
-            ]
-        )
-        prev_button.click(
-            fn=updatePage,
-            inputs=[
-                show_nsfw,
-                prev_button
-            ],
-            outputs=[
-                # current_model,
-                # list_versions,
-                list_html,
-                prev_button,
-                next_button,
-                pages
-            ]
-        )
-
-        def update_models_dropdown(model_name):
-            if model_name == "":
-                return (
-                            gr.Textbox.update(value=""), # Model name
-                            gr.Dropdown.update(value="", choices=[], interactive=False), # Versions
-                            # gr.Textbox.update(value=""), # Download URL
-                            gr.Textbox.update(value="", visible=False), # Trigger
-
-                            # gr.Textbox.update(value="", interactive=False), # Model FileName
-                            # gr.Button.update(interactive=False), # Download Button
-
-                            # gr.HTML.update(value=None), # Preview
-                            gr.HTML.update() # Model List 
-                        )   
-            start_time = time.time()
-            ret_versions = update_model_versions(model_name, False)
-            time_elapsed = time.time() - start_time
-            print("Extracted model versions in", time_elapsed, "seconds")
-
-            return (
-                        gr.Textbox.update(value=model_name), # Model name 
-                        ret_versions, # Versions
-                        # down_url, # Download URL
-                        gr.Textbox.update(value="", visible=False), # Trigger
-
-                        # filename, # Model FileName 
-                        # gr.Button.update(interactive=download_state, value=download), # Download Button
-
-                        # html, # Preview 
-                        gr.HTML.update(visible=False) # Model List 
-                    )   
-        
-        selected_model.change(
-            fn=update_models_dropdown,
-            inputs=[
-                selected_model,
-            ],
-            outputs=[
-                current_model,
-                list_versions,
-                # download_url,
-                trigger,
-
-                # model_filename, 
-                # download_model,
-
-                # preview_image_html,
-                list_html,
-            ],
-        )    
-        return (civitai_interface, "CivitAI", "civitai_interface"),
-
-script_callbacks.on_ui_tabs(on_ui_tabs)
