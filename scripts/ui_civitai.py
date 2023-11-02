@@ -3,7 +3,6 @@ from modules import script_callbacks
 import itertools
 from modules.shared import opts
 import re
-from scripts.civitai_api import civitaimodels
 import time
 from scripts.civitai_api import *
 
